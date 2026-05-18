@@ -9,34 +9,34 @@ Sistema web de control de asistencia escolar mediante códigos QR. Permite a los
 
 ---
 
-## 🚀 Demo
+## Demo
 
 > Sirve los archivos con **Live Server** (VS Code) o cualquier servidor local en `localhost`.  
 > La cámara requiere HTTPS o localhost para funcionar.
 
 ---
 
-## ✨ Características
+## Características
 
 ### Rol Alumno
-- 🔐 Registro e inicio de sesión con correo y contraseña
-- 📋 Perfil con datos académicos editables
-- 🔲 Generación automática de QR único al registrarse
-- 📊 Historial personal de entradas con filtros por mes y fecha
-- 📱 Pantalla de QR a pantalla completa para facilitar el escaneo
-- ⬇️ Descarga del QR como imagen PNG
+- Registro e inicio de sesión con correo y contraseña
+- Perfil con datos académicos editables
+- Generación automática de QR único al registrarse
+- Historial personal de entradas con filtros por mes y fecha
+- Pantalla de QR a pantalla completa para facilitar el escaneo
+- Descarga del QR como imagen PNG
 
 ### Rol Administrador
-- 📈 Dashboard con estadísticas en tiempo real
-- 📷 Escáner de QR mediante cámara del dispositivo
-- 👥 Gestión completa de alumnos (CRUD)
-- 📋 Historial global de asistencias con filtros
-- 🔄 Sistema de baja/reactivación de alumnos
-- 📑 Sección separada de alumnos activos e inactivos
+- Dashboard con estadísticas en tiempo real
+- Escáner de QR mediante cámara del dispositivo
+- Gestión completa de alumnos (CRUD)
+- Historial global de asistencias con filtros
+- Sistema de baja/reactivación de alumnos
+- Sección separada de alumnos activos e inactivos
 
 ---
 
-## 🛠️ Tecnologías
+## Tecnologías
 
 | Tecnología | Uso |
 |---|---|
@@ -153,7 +153,7 @@ Abre el proyecto con **Live Server** en VS Code o cualquier servidor local. No a
 
 ---
 
-## 🔒 Validaciones implementadas
+## Validaciones implementadas
 
 | Campo | Regla |
 |---|---|
@@ -166,7 +166,7 @@ Abre el proyecto con **Live Server** en VS Code o cualquier servidor local. No a
 
 ---
 
-## 📸 Pantallas
+## Pantallas
 
 | Pantalla | Descripción |
 |---|---|
@@ -181,13 +181,7 @@ Abre el proyecto con **Live Server** en VS Code o cualquier servidor local. No a
 
 ---
 
-## 👩‍💻 Autora
-
-**Naomi Otero Flores**  
 Proyecto final — Aplicaciones Móviles  
 
 ---
 
-## 📄 Licencia
-
-Este proyecto fue desarrollado con fines académicos.

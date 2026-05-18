@@ -267,7 +267,7 @@
           where('rol', '==', 'alumno'),
           where('activo', '==', true)
         ));
-        $('statAlumnos').textContent = alumnos.length;
+        $('statAlumnos').textContent = snapU.size;
         $('statActivos').textContent = snapU.size;
 
         // Lista lateral (últimos 5)

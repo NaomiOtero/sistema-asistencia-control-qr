@@ -332,7 +332,7 @@
         });
 
         // Actualizar colección 'alumnos'
-        await updateDoc(doc(db, 'alumnos', user.uid), {
+        await updateDoc(doc(db, 'usuarios', user.uid), {
           nombre:   nombreCompleto,
           carrera:  $('editCarrera').value,
           semestre: parseInt($('editSemestre').value)

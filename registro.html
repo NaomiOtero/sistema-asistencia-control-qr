@@ -320,7 +320,7 @@
 
         if (rol === 'alumno') {
           const matricula = getVal('inputMatricula');
-          await setDoc(doc(db, 'alumnos', uid), {
+          await setDoc(doc(db, 'usuarios', uid), {
             uid,
             matricula,
             nombre: nombreCompleto,

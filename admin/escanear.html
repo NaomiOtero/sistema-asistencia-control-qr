@@ -323,7 +323,7 @@
         hoy.setHours(0, 0, 0, 0);
 
         const snap = await getDocs(query(
-          collection(db, 'asistencias'),
+          collection(db, 'asistencia'),
           where('fecha', '>=', hoy),
           orderBy('fecha', 'desc')
         ));

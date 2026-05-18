@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro — Control de Asistencia QR</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    .rol-card {
+      flex: 1;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: .875rem 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      transition: border-color .15s, background .15s;
+    }
+    .rol-card.selected {
+      border-color: var(--primary);
+      background: #EEF2FF;
+    }
+    .rol-card input[type="radio"] {
+      accent-color: var(--primary);
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+    }
+    .rol-titulo { font-weight: 600; font-size: .9rem; }
+    .rol-sub    { font-size: .75rem; color: var(--text-muted); }
+    .rol-card.selected .rol-titulo { color: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">QR Asistencia</a>
+    <div class="navbar-menu">
+      <a href="index.html" class="nav-link">Cancelar</a>
+    </div>
+  </nav>
+
+  <div class="container" style="padding-top:2rem; padding-bottom:3rem;">
+
+    <!-- PASO 1: Formulario -->
+    <div id="stepForm">
+      <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:.25rem;">Crear cuenta</h2>
+      <p class="text-muted mb-2">Completa tus datos para registrarte</p>
+
+      <div class="card">
+        <div class="alert alert-error" id="alertError"></div>
+
+        <!-- Selector de rol -->
+        <div class="form-group">
+          <label class="form-label">Tipo de cuenta</label>
+          <div style="display:flex; gap:.75rem;">
+            <label class="rol-card selected" id="cardAlumno">
+              <input type="radio" name="rol" id="rolAlumno" value="alumno" checked>
+              <div>
+                <div class="rol-titulo">Alumno</div>
+                <div class="rol-sub">Accede con tu QR</div>
+              </div>
+            </label>
+            <label class="rol-card" id="cardAdmin">
+              <input type="radio" name="rol" id="rolAdmin" value="admin">
+              <div>
+                <div class="rol-titulo">Administrador</div>
+                <div class="rol-sub">Gestiona el sistema</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Campos comunes: nombre y apellidos -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="inputNombre">Nombre(s)</label>
+            <input class="form-control" type="text" id="inputNombre" placeholder="Juan" autocomplete="given-name">
+            <div class="form-error" id="errorNombre">Solo letras y espacios</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inputApellidos">Apellidos</label>
+            <input class="form-control" type="text" id="inputApellidos" placeholder="Pérez López" autocomplete="family-name">
+            <div class="form-error" id="errorApellidos">Solo letras y espacios</div>
+          </div>
+        </div>
+
+        <!-- Campos exclusivos de alumno -->
+        <div id="camposAlumno">
+          <div class="form-group">
+            <label class="form-label" for="inputMatricula">Matrícula</label>
+            <input class="form-control" type="text" id="inputMatricula" placeholder="Ej: 2021001234" maxlength="20">
+            <div class="form-error" id="errorMatricula">Solo números (mínimo 6 dígitos)</div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label" for="inputCarrera">Carrera</label>
+              <select class="form-control" id="inputCarrera">
+                <option value="">Selecciona...</option>
+                <option>Ingeniería en Sistemas</option>
+                <option>Ingeniería Industrial</option>
+                <option>Administración</option>
+                <option>Contabilidad</option>
+                <option>Derecho</option>
+                <option>Medicina</option>
+                <option>Otra</option>
+              </select>
+              <div class="form-error" id="errorCarrera">Selecciona una carrera</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputSemestre">Semestre</label>
+              <select class="form-control" id="inputSemestre">
+                <option value="">Selecciona...</option>
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option><option>10</option>
+              </select>
+              <div class="form-error" id="errorSemestre">Selecciona un semestre</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campos comunes: email y contraseña -->
+        <div class="form-group">
+          <label class="form-label" for="inputEmail">Correo electrónico</label>
+          <input class="form-control" type="email" id="inputEmail" placeholder="correo@escuela.edu.mx" autocomplete="email">
+          <div class="form-error" id="errorEmail">El correo debe contener @ y un dominio válido</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="inputPassword">Contraseña</label>
+          <input class="form-control" type="password" id="inputPassword" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          <div class="form-error" id="errorPassword">Mínimo 6 caracteres</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="inputPassword2">Confirmar contraseña</label>
+          <input class="form-control" type="password" id="inputPassword2" placeholder="Repite tu contraseña" autocomplete="new-password">
+          <div class="form-error" id="errorPassword2">Las contraseñas no coinciden</div>
+        </div>
+
+        <button class="btn btn-primary" id="btnRegistrar" type="button">
+          <span class="spinner" id="spinner"></span>
+          <span id="btnTexto">Crear cuenta y generar QR</span>
+        </button>
+
+        <p class="text-muted text-center mt-2">
+          ¿Ya tienes cuenta? <a href="index.html">Inicia sesión</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- PASO 2A: QR generado (alumno) -->
+    <div id="stepQR" style="display:none;">
+      <div class="card text-center">
+        <div style="font-size:2.5rem; margin-bottom:.5rem;">&#127881;</div>
+        <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:.25rem;">¡Cuenta creada!</h2>
+        <p class="text-muted mb-2">Este es tu código QR de acceso. Guárdalo o tómale foto.</p>
+
+        <div id="qrCanvas" style="display:flex; justify-content:center; margin:1.5rem 0;"></div>
+
+        <div style="background:var(--bg); border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+          <p style="font-size:.8rem; color:var(--text-muted); margin-bottom:.25rem;">Matrícula</p>
+          <p style="font-weight:700; font-size:1.1rem;" id="qrMatricula"></p>
+          <p style="font-size:.8rem; color:var(--text-muted); margin-top:.5rem; margin-bottom:.25rem;">Nombre</p>
+          <p style="font-weight:500;" id="qrNombre"></p>
+        </div>
+
+        <button class="btn btn-outline mb-1" id="btnDescargar" type="button">Descargar QR</button>
+        <a href="perfil.html" class="btn btn-primary mt-1">Ir a mi perfil</a>
+      </div>
+    </div>
+
+    <!-- PASO 2B: Admin creado -->
+    <div id="stepAdmin" style="display:none;">
+      <div class="card text-center">
+        <div style="font-size:2.5rem; margin-bottom:.5rem;">&#9989;</div>
+        <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:.25rem;">¡Administrador registrado!</h2>
+        <p class="text-muted mb-2" id="adminNombreMsg"></p>
+        <a href="admin/dashboard.html" class="btn btn-primary mt-1" style="display:inline-flex; width:auto; padding:.75rem 2rem;">
+          Ir al panel de administración
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const $ = id => document.getElementById(id);
+    const getVal = id => $(id).value.trim();
+
+    // ── Selector de rol ──────────────────────────────────────────
+    function getRol() {
+      return document.querySelector('input[name="rol"]:checked')?.value || 'alumno';
+    }
+
+    function actualizarUI() {
+      const esAdmin = getRol() === 'admin';
+      $('cardAlumno').classList.toggle('selected', !esAdmin);
+      $('cardAdmin').classList.toggle('selected',   esAdmin);
+      $('camposAlumno').style.display = esAdmin ? 'none' : 'block';
+      $('btnTexto').textContent = esAdmin
+        ? 'Crear cuenta de administrador'
+        : 'Crear cuenta y generar QR';
+    }
+
+    $('rolAlumno').addEventListener('change', actualizarUI);
+    $('rolAdmin').addEventListener('change',  actualizarUI);
+
+    // ── Bloqueo de caracteres en tiempo real ─────────────────────
+    ['inputNombre', 'inputApellidos'].forEach(id => {
+      $(id).addEventListener('input', function() {
+        this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/g, '');
+      });
+    });
+
+    $('inputMatricula').addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+
+    // ── Helpers de errores ───────────────────────────────────────
+    function markError(inputId, errorId, msg) {
+      $(inputId).classList.add('error');
+      $(errorId).textContent = msg;
+      $(errorId).classList.add('visible');
+    }
+
+    function clearErrors() {
+      document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+      document.querySelectorAll('.form-error').forEach(el => el.classList.remove('visible'));
+      $('alertError').classList.remove('visible');
+    }
+
+    // ── Validación ───────────────────────────────────────────────
+    function validate() {
+      let ok  = true;
+      const esAlumno = getRol() === 'alumno';
+
+      const nombre = getVal('inputNombre');
+      if (!nombre || nombre.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(nombre)) {
+        markError('inputNombre', 'errorNombre', 'Solo letras y espacios, mínimo 2 caracteres');
+        ok = false;
+      }
+
+      const apellidos = getVal('inputApellidos');
+      if (!apellidos || apellidos.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(apellidos)) {
+        markError('inputApellidos', 'errorApellidos', 'Solo letras y espacios, mínimo 2 caracteres');
+        ok = false;
+      }
+
+      if (esAlumno) {
+        const matricula = getVal('inputMatricula');
+        if (!matricula || !/^\d{6,}$/.test(matricula)) {
+          markError('inputMatricula', 'errorMatricula', 'Solo números, mínimo 6 dígitos');
+          ok = false;
+        }
+        if (!getVal('inputCarrera')) {
+          markError('inputCarrera', 'errorCarrera', 'Selecciona una carrera');
+          ok = false;
+        }
+        if (!getVal('inputSemestre')) {
+          markError('inputSemestre', 'errorSemestre', 'Selecciona un semestre');
+          ok = false;
+        }
+      }
+
+      const email = getVal('inputEmail');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        markError('inputEmail', 'errorEmail', 'El correo debe tener @ y un dominio válido');
+        ok = false;
+      }
+
+      const pass = $('inputPassword').value;
+      if (!pass || pass.length < 6) {
+        markError('inputPassword', 'errorPassword', 'La contraseña debe tener mínimo 6 caracteres');
+        ok = false;
+      }
+
+      if ($('inputPassword2').value !== pass) {
+        markError('inputPassword2', 'errorPassword2', 'Las contraseñas no coinciden');
+        ok = false;
+      }
+
+      return ok;
+    }
+
+    // ── Registro ─────────────────────────────────────────────────
+    $('btnRegistrar').addEventListener('click', async () => {
+      clearErrors();
+      if (!validate()) return;
+
+      const spinner = $('spinner');
+      const btnReg  = $('btnRegistrar');
+      spinner.classList.add('visible');
+      btnReg.disabled = true;
+
+      const rol            = getRol();
+      const email          = getVal('inputEmail');
+      const password       = $('inputPassword').value;
+      const nombreCompleto = `${getVal('inputNombre')} ${getVal('inputApellidos')}`;
+
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const uid  = cred.user.uid;
+
+        // Siempre guardar en 'usuarios' con el rol correcto
+        await setDoc(doc(db, 'usuarios', uid), {
+          uid,
+          email,
+          rol,
+          nombre: nombreCompleto,
+          createdAt: serverTimestamp(),
+          activo: true
+        });
+
+        if (rol === 'alumno') {
+          const matricula = getVal('inputMatricula');
+          await setDoc(doc(db, 'alumnos', uid), {
+            uid,
+            matricula,
+            nombre: nombreCompleto,
+            carrera:  getVal('inputCarrera'),
+            semestre: parseInt(getVal('inputSemestre')),
+            qrData:   uid,
+            createdAt: serverTimestamp()
+          });
+          mostrarQR(uid, matricula, nombreCompleto);
+
+        } else {
+          // Admin: pantalla de éxito sin QR
+          $('stepForm').style.display  = 'none';
+          $('stepAdmin').style.display = 'block';
+          $('adminNombreMsg').textContent =
+            `Bienvenido, ${nombreCompleto}. Ya puedes acceder al panel.`;
+        }
+
+      } catch (err) {
+        const msgs = {
+          'auth/email-already-in-use': 'Este correo ya tiene una cuenta registrada',
+          'auth/invalid-email':         'El correo electrónico no es válido',
+          'auth/weak-password':         'La contraseña es muy débil',
+          'auth/network-request-failed':'Sin conexión. Revisa tu internet',
+        };
+        $('alertError').textContent = msgs[err.code] || `Error: ${err.message}`;
+        $('alertError').classList.add('visible');
+        console.error('Error registro:', err.code, err.message);
+      } finally {
+        spinner.classList.remove('visible');
+        btnReg.disabled = false;
+      }
+    });
+
+    // ── Mostrar QR (alumno) ───────────────────────────────────────
+    function mostrarQR(uid, matricula, nombre) {
+      $('stepForm').style.display  = 'none';
+      $('stepQR').style.display    = 'block';
+      $('qrMatricula').textContent = matricula;
+      $('qrNombre').textContent    = nombre;
+      $('qrCanvas').innerHTML      = '';
+
+      new QRCode($('qrCanvas'), {
+        text:         uid,
+        width:        220,
+        height:       220,
+        colorDark:    '#111827',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+
+    // ── Descargar QR ─────────────────────────────────────────────
+    $('btnDescargar').addEventListener('click', () => {
+      setTimeout(() => {
+        const canvas = document.querySelector('#qrCanvas canvas');
+        if (!canvas) { alert('El QR aún no está listo, espera un momento.'); return; }
+        const link  = document.createElement('a');
+        link.download = `QR_${$('qrMatricula').textContent}.png`;
+        link.href     = canvas.toDataURL('image/png');
+        link.click();
+      }, 200);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escanear QR — Control de Asistencia QR</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    /* Área de escáner */
+    .scanner-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #000;
+    }
+    #qr-reader {
+      width: 100% !important;
+    }
+    #qr-reader video {
+      width: 100% !important;
+      border-radius: 16px;
+    }
+    /* Ocultar botones internos de la librería */
+    #qr-reader__dashboard_section_csr button,
+    #qr-reader__dashboard_section_fsr,
+    #qr-reader__status_span,
+    #qr-reader__header_message {
+      display: none !important;
+    }
+    #qr-reader__dashboard { display: none !important; }
+
+    /* Marco de escaneo animado */
+    .scan-frame {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .scan-box {
+      width: 200px;
+      height: 200px;
+      position: relative;
+    }
+    .scan-box::before,
+    .scan-box::after,
+    .corner-br,
+    .corner-bl {
+      content: '';
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: #fff;
+      border-style: solid;
+      border-width: 0;
+    }
+    .scan-box::before  { top:0;    left:0;  border-top-width:3px;    border-left-width:3px;  border-radius:4px 0 0 0; }
+    .scan-box::after   { top:0;    right:0; border-top-width:3px;    border-right-width:3px; border-radius:0 4px 0 0; }
+    .corner-br { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; border-radius:0 0 4px 0; }
+    .corner-bl { bottom:0; left:0;  border-bottom-width:3px; border-left-width:3px;  border-radius:0 0 0 4px; }
+
+    /* Línea de escaneo animada */
+    .scan-line {
+      position: absolute;
+      left: 8px; right: 8px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #6366f1, transparent);
+      animation: scanMove 2s ease-in-out infinite;
+      border-radius: 2px;
+    }
+    @keyframes scanMove {
+      0%   { top: 10px; opacity: 1; }
+      50%  { top: 182px; opacity: 1; }
+      100% { top: 10px; opacity: 1; }
+    }
+
+    /* Resultado del escaneo */
+    .result-card {
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .result-card.success { background: #F0FDF4; border: 1px solid #86EFAC; }
+    .result-card.error   { background: #FEF2F2; border: 1px solid #FCA5A5; }
+    .result-card.warning { background: #FFFBEB; border: 1px solid #FCD34D; }
+
+    .result-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .result-avatar.success { background: #D1FAE5; color: #065F46; }
+    .result-avatar.error   { background: #FEE2E2; color: #991B1B; }
+    .result-avatar.warning { background: #FEF3C7; color: #92400E; }
+
+    /* Historial de hoy */
+    .historial-item {
+      display: flex;
+      align-items: center;
+      gap: .875rem;
+      padding: .75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .historial-item:last-child { border-bottom: none; }
+    .hist-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #EEF2FF;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700; color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    /* Estado de cámara */
+    .cam-estado {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--text-muted);
+      font-size: .9rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-ring {
+      display: inline-block; width: 28px; height: 28px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* Pulso de éxito */
+    @keyframes pulse-ok {
+      0%   { box-shadow: 0 0 0 0   rgba(5,150,105,.4); }
+      100% { box-shadow: 0 0 0 20px rgba(5,150,105,0);  }
+    }
+    .pulse-ok { animation: pulse-ok .6s ease-out; }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">
+      QR Asistencia
+      <span style="font-size:.7rem; background:#EEF2FF; color:var(--primary); padding:.15rem .5rem; border-radius:999px; font-weight:600; margin-left:.4rem;">ADMIN</span>
+    </a>
+    <div class="navbar-menu">
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="alumnos.html"   class="nav-link">Alumnos</a>
+      <a href="escanear.html"  class="nav-link active">Escanear QR</a>
+      <button class="btn btn-outline btn-sm" id="btnCerrarSesion" type="button">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="container-wide" style="padding-top:2rem; padding-bottom:3rem;">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; align-items:start;">
+
+      <!-- Columna izquierda: Cámara -->
+      <div>
+        <h2 style="font-size:1.1rem; font-weight:700; margin-bottom:.25rem;">Escanear código QR</h2>
+        <p class="text-muted mb-2" style="font-size:.875rem;">Apunta la cámara al QR del alumno para registrar su asistencia.</p>
+
+        <!-- Controles de cámara -->
+        <div style="display:flex; gap:.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" id="btnIniciar" type="button" style="width:auto;">
+            Iniciar cámara
+          </button>
+          <button class="btn btn-outline btn-sm" id="btnDetener" type="button" style="width:auto; display:none;">
+            Detener cámara
+          </button>
+          <select class="form-control" id="selectTipo" style="width:auto; padding:.45rem .875rem;">
+            <option value="entrada">Registrar entrada</option>
+            <option value="salida">Registrar salida</option>
+          </select>
+        </div>
+
+        <!-- Visor de cámara -->
+        <div class="card" style="padding:0; overflow:hidden; position:relative;">
+          <!-- Estado inicial -->
+          <div id="camInicial" class="cam-estado">
+            <div style="font-size:2rem; margin-bottom:.5rem;">📷</div>
+            <p>Presiona <strong>Iniciar cámara</strong> para comenzar a escanear.</p>
+          </div>
+
+          <!-- Cargando cámara -->
+          <div id="camCargando" class="cam-estado" style="display:none;">
+            <div class="loading-ring"></div>
+            <p class="mt-1">Iniciando cámara...</p>
+          </div>
+
+          <!-- Escáner activo -->
+          <div id="camActiva" style="display:none; position:relative;">
+            <div class="scanner-wrap">
+              <div id="qr-reader"></div>
+              <div class="scan-frame">
+                <div class="scan-box">
+                  <div class="corner-br"></div>
+                  <div class="corner-bl"></div>
+                  <div class="scan-line"></div>
+                </div>
+              </div>
+            </div>
+            <p class="text-muted text-center mt-1" style="font-size:.8rem; padding:.75rem;">
+              Mantén el código QR dentro del recuadro
+            </p>
+          </div>
+
+          <!-- Sin permisos -->
+          <div id="camError" class="cam-estado" style="display:none;">
+            <div style="font-size:2rem; margin-bottom:.5rem;">🚫</div>
+            <p style="color:var(--danger);">No se pudo acceder a la cámara.</p>
+            <p class="text-muted" style="font-size:.8rem; margin-top:.5rem;">
+              Verifica que el navegador tenga permiso para usar la cámara y que estés en una conexión segura (HTTPS o localhost).
+            </p>
+          </div>
+        </div>
+
+        <!-- Resultado del escaneo -->
+        <div id="resultadoWrap" style="margin-top:1rem; display:none;">
+          <div id="resultadoCard" class="result-card">
+            <div id="resultadoAvatar" class="result-avatar"></div>
+            <div style="flex:1; min-width:0;">
+              <p id="resultadoNombre" style="font-weight:700; margin-bottom:.2rem;"></p>
+              <p id="resultadoMeta"   style="font-size:.8rem; opacity:.75;"></p>
+              <p id="resultadoHora"   style="font-size:.8rem; opacity:.6; margin-top:.15rem;"></p>
+            </div>
+            <span id="resultadoBadge" class="badge"></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Columna derecha: Historial de hoy -->
+      <div>
+        <div class="flex-between mb-2">
+          <div>
+            <h2 style="font-size:1.1rem; font-weight:700; margin-bottom:.2rem;">Entradas de hoy</h2>
+            <p class="text-muted" style="font-size:.8rem;" id="fechaHoy"></p>
+          </div>
+          <span class="badge badge-info" id="badgeConteo">0</span>
+        </div>
+
+        <div class="card" style="padding:1rem 1.25rem;">
+          <div id="loadingHistorial" class="text-center" style="padding:1.5rem 0;">
+            <div class="loading-ring"></div>
+          </div>
+
+          <div id="historialVacio" style="display:none; text-align:center; padding:2rem 0;">
+            <p style="font-size:1.5rem; margin-bottom:.5rem;">📋</p>
+            <p class="text-muted" style="font-size:.875rem;">Sin entradas registradas hoy.</p>
+          </div>
+
+          <div id="historialItems" style="display:none;"></div>
+        </div>
+
+        <!-- Resumen del día -->
+        <div class="card mt-2" style="padding:1rem 1.25rem;">
+          <h3 style="font-size:.875rem; font-weight:600; margin-bottom:.875rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Resumen del día</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem;">
+            <div style="text-align:center;">
+              <p style="font-size:1.75rem; font-weight:800; color:var(--success); line-height:1;" id="resEntradas">0</p>
+              <p class="text-muted" style="font-size:.75rem; margin-top:.25rem;">Entradas</p>
+            </div>
+            <div style="text-align:center;">
+              <p style="font-size:1.75rem; font-weight:800; color:var(--warning); line-height:1;" id="resSalidas">0</p>
+              <p class="text-muted" style="font-size:.75rem; margin-top:.25rem;">Salidas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from '../js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      collection, query, where, orderBy,
+      getDocs, addDoc, getDoc, doc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const $ = id => document.getElementById(id);
+
+    let scanner       = null;
+    let escaneando    = false;
+    let adminData     = {};
+    let historialHoy  = [];
+    let ultimoUid     = null;       // evitar doble registro del mismo QR
+    let cooldown      = false;
+
+    // ── Auth guard ─────────────────────────────────────────────────
+    onAuthStateChanged(auth, async user => {
+      if (!user) { window.location.href = '../index.html'; return; }
+      const snap = await getDoc(doc(db, 'usuarios', user.uid));
+      if (!snap.exists() || snap.data().rol !== 'admin') {
+        window.location.href = '../index.html'; return;
+      }
+      adminData = snap.data();
+      mostrarFechaHoy();
+      await cargarHistorialHoy();
+    });
+
+    // ── Fecha de hoy ───────────────────────────────────────────────
+    function mostrarFechaHoy() {
+      $('fechaHoy').textContent = new Date().toLocaleDateString('es-MX', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    // ── Cargar historial de hoy ────────────────────────────────────
+    async function cargarHistorialHoy() {
+      try {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+
+        const snap = await getDocs(query(
+          collection(db, 'asistencias'),
+          where('fecha', '>=', hoy),
+          orderBy('fecha', 'desc')
+        ));
+
+        historialHoy = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderHistorial();
+        $('loadingHistorial').style.display = 'none';
+
+      } catch (err) {
+        console.error('Error historial:', err);
+        $('loadingHistorial').innerHTML = '<p class="text-muted" style="font-size:.85rem;">Error al cargar</p>';
+      }
+    }
+
+    // ── Render historial ───────────────────────────────────────────
+    function iniciales(nombre) {
+      if (!nombre) return '?';
+      const p = nombre.trim().split(' ').filter(Boolean);
+      return p.length >= 2 ? `${p[0][0]}${p[p.length-1][0]}`.toUpperCase() : nombre.substring(0,2).toUpperCase();
+    }
+
+    function renderHistorial() {
+      const entradas = historialHoy.filter(h => h.tipo === 'entrada' || !h.tipo).length;
+      const salidas  = historialHoy.filter(h => h.tipo === 'salida').length;
+
+      $('badgeConteo').textContent = historialHoy.length;
+      $('resEntradas').textContent = entradas;
+      $('resSalidas').textContent  = salidas;
+
+      if (historialHoy.length === 0) {
+        $('historialVacio').style.display = 'block';
+        $('historialItems').style.display = 'none';
+        return;
+      }
+
+      $('historialVacio').style.display = 'none';
+      $('historialItems').style.display = 'block';
+
+      $('historialItems').innerHTML = historialHoy.map(h => {
+        const fecha = h.fecha ? h.fecha.toDate() : new Date();
+        const hora  = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="historial-item">
+            <div class="hist-avatar">${iniciales(h.alumnoNombre)}</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:.875rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${h.alumnoNombre || 'Alumno'}</div>
+              <div style="font-size:.75rem; color:var(--text-muted);">${h.matricula || '—'} · ${hora}</div>
+            </div>
+            <span class="badge ${h.tipo === 'salida' ? 'badge-warning' : 'badge-success'}">${h.tipo || 'entrada'}</span>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Iniciar escáner ────────────────────────────────────────────
+    $('btnIniciar').addEventListener('click', async () => {
+      $('camInicial').style.display  = 'none';
+      $('camCargando').style.display = 'block';
+      $('btnIniciar').style.display  = 'none';
+
+      try {
+        scanner = new Html5Qrcode('qr-reader');
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 200, height: 200 } },
+          onQRExitoso,
+          () => {}   // error silencioso (frames sin QR)
+        );
+
+        escaneando = true;
+        $('camCargando').style.display = 'none';
+        $('camActiva').style.display   = 'block';
+        $('btnDetener').style.display  = 'inline-flex';
+
+      } catch (err) {
+        console.error('Error cámara:', err);
+        $('camCargando').style.display = 'none';
+        $('camError').style.display    = 'block';
+        $('btnIniciar').style.display  = 'inline-flex';
+      }
+    });
+
+    // ── Detener escáner ────────────────────────────────────────────
+    $('btnDetener').addEventListener('click', detenerScanner);
+
+    async function detenerScanner() {
+      if (scanner && escaneando) {
+        try { await scanner.stop(); } catch (e) {}
+        escaneando = false;
+      }
+      $('camActiva').style.display  = 'none';
+      $('camInicial').style.display = 'block';
+      $('btnDetener').style.display = 'none';
+      $('btnIniciar').style.display = 'inline-flex';
+    }
+
+    // ── Processar QR escaneado ─────────────────────────────────────
+    async function onQRExitoso(uid) {
+      // Cooldown de 3 segundos para evitar registros duplicados
+      if (cooldown || uid === ultimoUid) return;
+      cooldown   = true;
+      ultimoUid  = uid;
+      setTimeout(() => { cooldown = false; ultimoUid = null; }, 3000);
+
+      const tipo = $('selectTipo').value;
+
+      try {
+        const [snapA, snapU] = await Promise.all([
+          getDoc(doc(db, 'alumnos', uid)),
+          getDoc(doc(db, 'usuarios', uid))
+        ]);
+
+        if (!snapA.exists()) {
+          mostrarResultado('error', '?', 'QR no reconocido',
+            'Este código no corresponde a ningún alumno registrado.', tipo);
+          return;
+        }
+
+        const alumno  = snapA.data();
+        const usuario = snapU.exists() ? snapU.data() : {};
+
+        if (usuario.activo === false) {
+          mostrarResultado('warning',
+            iniciales(alumno.nombre),
+            alumno.nombre || 'Alumno',
+            'Este alumno está dado de baja. No se registró la asistencia.',
+            tipo
+          );
+          return;
+        }
+
+        // INSERT en colección 'asistencia' (singular)
+        await addDoc(collection(db, 'asistencia'), {
+          alumnoUid:           uid,
+          alumnoNombre:        alumno.nombre    || '',
+          matricula:           alumno.matricula || '',
+          fecha:               serverTimestamp(),
+          tipo,
+          registradoPor:       adminData.uid    || '',
+          registradoPorNombre: adminData.nombre || 'Administrador'
+        });
+
+        // Agregar al historial local
+        historialHoy.unshift({
+          id:           'nuevo',
+          alumnoNombre: alumno.nombre    || '',
+          matricula:    alumno.matricula || '',
+          fecha:        { toDate: () => new Date() },
+          tipo
+        });
+        renderHistorial();
+
+        mostrarResultado(
+          'success',
+          iniciales(alumno.nombre),
+          alumno.nombre || 'Alumno',
+          `${alumno.matricula || '—'} · ${alumno.carrera || ''} · ${alumno.semestre ? alumno.semestre + '° sem.' : ''}`,
+          tipo
+        );
+
+      } catch (err) {
+        console.error('Error registrando asistencia:', err);
+        mostrarResultado('error', '!', 'Error al registrar', err.message, tipo);
+      }
+    }
+
+    // ── Mostrar resultado ──────────────────────────────────────────
+    function mostrarResultado(estado, avatarTexto, nombre, meta, tipo) {
+      const card   = $('resultadoCard');
+      const avatar = $('resultadoAvatar');
+      const badge  = $('resultadoBadge');
+
+      // Limpiar clases previas
+      card.className   = `result-card ${estado}`;
+      avatar.className = `result-avatar ${estado}`;
+
+      avatar.textContent              = avatarTexto;
+      $('resultadoNombre').textContent = nombre;
+      $('resultadoMeta').textContent   = meta;
+      $('resultadoHora').textContent   = `Registrado: ${new Date().toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}`;
+
+      if (estado === 'success') {
+        badge.textContent  = tipo === 'salida' ? 'Salida registrada' : 'Entrada registrada';
+        badge.className    = `badge ${tipo === 'salida' ? 'badge-warning' : 'badge-success'}`;
+      } else if (estado === 'warning') {
+        badge.textContent = 'Inactivo';
+        badge.className   = 'badge badge-warning';
+      } else {
+        badge.textContent = 'Error';
+        badge.className   = 'badge';
+        badge.style.background = '#FEE2E2';
+        badge.style.color      = '#991B1B';
+      }
+
+      $('resultadoWrap').style.display = 'block';
+
+      // Animación de pulso en éxito
+      if (estado === 'success') {
+        card.classList.remove('pulse-ok');
+        void card.offsetWidth;
+        card.classList.add('pulse-ok');
+      }
+
+      // Auto-ocultar después de 6 segundos
+      clearTimeout(card._timer);
+      card._timer = setTimeout(() => {
+        $('resultadoWrap').style.display = 'none';
+      }, 6000);
+    }
+
+    // ── Cerrar sesión ──────────────────────────────────────────────
+    $('btnCerrarSesion').addEventListener('click', async () => {
+      await detenerScanner();
+      await signOut(auth);
+      window.location.href = '../index.html';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin — Control de Asistencia QR</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">QR Asistencia <span style="font-size:.7rem; background:#EEF2FF; color:var(--primary); padding:.15rem .5rem; border-radius:999px; font-weight:600; margin-left:.4rem;">ADMIN</span></a>
+    <div class="navbar-menu">
+      <a href="dashboard.html" class="nav-link active">Dashboard</a>
+      <a href="alumnos.html"   class="nav-link">Alumnos</a>
+      <a href="escanear.html"  class="nav-link">Escanear QR</a>
+      <button class="btn btn-outline btn-sm" id="btnCerrarSesion" type="button">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="container-wide" style="padding-top:2rem; padding-bottom:3rem;">
+
+    <!-- Encabezado -->
+    <div class="flex-between mb-2" style="flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:.2rem;">Panel de administración</h2>
+        <p class="text-muted" id="adminBienvenida">Cargando...</p>
+      </div>
+      <a href="escanear.html" class="btn btn-primary btn-sm" style="width:auto;">Escanear QR</a>
+    </div>
+
+    <!-- Tarjetas resumen -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem;">
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--primary); line-height:1;" id="statAlumnos">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Alumnos registrados</p>
+      </div>
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--success); line-height:1;" id="statEntradas">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Entradas totales</p>
+      </div>
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--warning); line-height:1;" id="statHoy">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Entradas hoy</p>
+      </div>
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--text); line-height:1;" id="statActivos">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Alumnos activos</p>
+      </div>
+    </div>
+
+    <!-- Dos columnas -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; align-items:start;">
+
+      <!-- Últimas entradas -->
+      <div class="card">
+        <div class="flex-between mb-2">
+          <h3 style="font-size:1rem; font-weight:600;">Últimas entradas</h3>
+          <span class="badge badge-info" id="badgeEntradas">—</span>
+        </div>
+
+        <div id="loadingEntradas" class="text-center" style="padding:2rem 0;">
+          <div style="display:inline-block; width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;"></div>
+        </div>
+
+        <div id="listaEntradas" style="display:none;">
+          <div id="entradasItems"></div>
+          <a href="#seccionEntradas" class="text-muted" style="font-size:.8rem; display:block; text-align:center; margin-top:1rem;">Ver todas ↓</a>
+        </div>
+
+        <div id="emptyEntradas" style="display:none;" class="text-center">
+          <p class="text-muted" style="padding:1.5rem 0; font-size:.875rem;">Sin entradas registradas aún</p>
+        </div>
+      </div>
+
+      <!-- Alumnos recientes -->
+      <div class="card">
+        <div class="flex-between mb-2">
+          <h3 style="font-size:1rem; font-weight:600;">Alumnos recientes</h3>
+          <a href="alumnos.html" class="text-muted" style="font-size:.8rem;">Ver todos →</a>
+        </div>
+
+        <div id="loadingAlumnos" class="text-center" style="padding:2rem 0;">
+          <div style="display:inline-block; width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;"></div>
+        </div>
+
+        <div id="listaAlumnos" style="display:none;">
+          <div id="alumnosItems"></div>
+        </div>
+
+        <div id="emptyAlumnos" style="display:none;" class="text-center">
+          <p class="text-muted" style="padding:1.5rem 0; font-size:.875rem;">Sin alumnos registrados aún</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla completa de entradas -->
+    <div id="seccionEntradas" style="margin-top:1.5rem;">
+      <div class="card">
+        <div class="flex-between mb-2" style="flex-wrap:wrap; gap:.75rem;">
+          <h3 style="font-size:1rem; font-weight:600;">Historial completo de entradas</h3>
+          <div style="display:flex; gap:.75rem; flex-wrap:wrap; align-items:center;">
+            <input class="form-control" type="text"   id="buscarAlumno" placeholder="Buscar alumno..." style="width:180px; padding:.45rem .875rem;">
+            <input class="form-control" type="date"   id="filtroFecha"  style="width:auto; padding:.45rem .875rem;">
+            <select class="form-control"              id="filtroTipo"   style="width:auto; padding:.45rem .875rem;">
+              <option value="">Todos los tipos</option>
+              <option value="entrada">Entrada</option>
+              <option value="salida">Salida</option>
+            </select>
+            <button class="btn btn-outline btn-sm" id="btnLimpiar" type="button">Limpiar</button>
+          </div>
+        </div>
+
+        <div id="loadingTabla" class="text-center" style="padding:2rem 0;">
+          <div style="display:inline-block; width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;"></div>
+        </div>
+
+        <div id="tablaWrap" style="display:none;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Alumno</th>
+                  <th>Matrícula</th>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Tipo</th>
+                </tr>
+              </thead>
+              <tbody id="tablaBody"></tbody>
+            </table>
+          </div>
+          <p class="text-muted mt-1" style="font-size:.8rem; text-align:right;" id="conteoTabla"></p>
+        </div>
+
+        <div id="emptyTabla" style="display:none;" class="text-center">
+          <p class="text-muted" style="padding:2rem 0;">No hay entradas que coincidan con los filtros.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <style>
+    /* Item de entrada en lista lateral */
+    .entrada-item {
+      display: flex;
+      align-items: center;
+      gap: .875rem;
+      padding: .75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .entrada-item:last-child { border-bottom: none; }
+    .entrada-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: #EEF2FF;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; font-weight: 700; color: var(--primary);
+      flex-shrink: 0;
+    }
+    .entrada-info { flex: 1; min-width: 0; }
+    .entrada-nombre { font-size: .9rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entrada-meta   { font-size: .78rem; color: var(--text-muted); }
+
+    /* Item de alumno en lista lateral */
+    .alumno-item {
+      display: flex;
+      align-items: center;
+      gap: .875rem;
+      padding: .75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .alumno-item:last-child { border-bottom: none; }
+    .alumno-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: #F0FDF4;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; font-weight: 700; color: var(--success);
+      flex-shrink: 0;
+    }
+    .alumno-info { flex: 1; min-width: 0; }
+    .alumno-nombre  { font-size: .9rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .alumno-carrera { font-size: .78rem; color: var(--text-muted); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <script type="module">
+    import { auth, db } from '../js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { collection, query, orderBy, limit, getDocs, doc, getDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const $ = id => document.getElementById(id);
+
+    let todasEntradas = [];
+    let entradasFiltradas = [];
+
+    // ── Auth guard + verificar rol admin ──────────────────────────
+    onAuthStateChanged(auth, async user => {
+      if (!user) { window.location.href = '../index.html'; return; }
+
+      const snap = await getDoc(doc(db, 'usuarios', user.uid));
+      if (!snap.exists() || snap.data().rol !== 'admin') {
+        window.location.href = '../index.html';
+        return;
+      }
+
+      $('adminBienvenida').textContent = `Bienvenido, ${snap.data().nombre || 'Administrador'}`;
+      await Promise.all([cargarEntradas(), cargarAlumnos()]);
+    });
+
+    // ── Cargar entradas ────────────────────────────────────────────
+    async function cargarEntradas() {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'asistencia'),
+          orderBy('fecha', 'desc')
+        ));
+
+        todasEntradas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Stats
+        const hoy = new Date();
+        hoy.setHours(0,0,0,0);
+        const hoyCount = todasEntradas.filter(e => e.fecha && e.fecha.toDate() >= hoy).length;
+        $('statEntradas').textContent = todasEntradas.length;
+        $('statHoy').textContent      = hoyCount;
+        $('badgeEntradas').textContent = `${todasEntradas.length} total`;
+
+        // Lista lateral (últimas 5)
+        $('loadingEntradas').style.display = 'none';
+        if (todasEntradas.length === 0) {
+          $('emptyEntradas').style.display = 'block';
+        } else {
+          renderListaEntradas(todasEntradas.slice(0, 5));
+          $('listaEntradas').style.display = 'block';
+        }
+
+        // Tabla completa
+        entradasFiltradas = [...todasEntradas];
+        renderTabla();
+        $('loadingTabla').style.display = 'none';
+
+      } catch (err) {
+        console.error('Error entradas:', err);
+        $('loadingEntradas').innerHTML = '<p class="text-muted" style="font-size:.85rem;">Error al cargar</p>';
+        $('loadingTabla').innerHTML    = '<p class="text-muted" style="font-size:.85rem; text-align:center; padding:2rem 0;">Error al cargar</p>';
+      }
+    }
+
+    // ── Cargar alumnos ─────────────────────────────────────────────
+    async function cargarAlumnos() {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'alumnos'),
+          orderBy('createdAt', 'desc')
+        ));
+
+        const alumnos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Stats activos (consultar usuarios)
+        const snapU = await getDocs(query(
+          collection(db, 'usuarios'),
+          where('rol', '==', 'alumno'),
+          where('activo', '==', true)
+        ));
+        $('statAlumnos').textContent = alumnos.length;
+        $('statActivos').textContent = snapU.size;
+
+        // Lista lateral (últimos 5)
+        $('loadingAlumnos').style.display = 'none';
+        if (alumnos.length === 0) {
+          $('emptyAlumnos').style.display = 'block';
+        } else {
+          renderListaAlumnos(alumnos.slice(0, 5));
+          $('listaAlumnos').style.display = 'block';
+        }
+
+      } catch (err) {
+        console.error('Error alumnos:', err);
+        $('loadingAlumnos').innerHTML = '<p class="text-muted" style="font-size:.85rem;">Error al cargar</p>';
+      }
+    }
+
+    // ── Render lista lateral entradas ──────────────────────────────
+    function iniciales(nombre) {
+      if (!nombre) return '?';
+      const p = nombre.trim().split(' ').filter(Boolean);
+      return p.length >= 2 ? `${p[0][0]}${p[p.length-1][0]}`.toUpperCase() : nombre.substring(0,2).toUpperCase();
+    }
+
+    function renderListaEntradas(lista) {
+      $('entradasItems').innerHTML = lista.map(e => {
+        const fecha = e.fecha ? e.fecha.toDate() : new Date();
+        const hora  = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        const dia   = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        return `
+          <div class="entrada-item">
+            <div class="entrada-avatar">${iniciales(e.alumnoNombre)}</div>
+            <div class="entrada-info">
+              <div class="entrada-nombre">${e.alumnoNombre || 'Alumno'}</div>
+              <div class="entrada-meta">${e.matricula || '—'} · ${dia} ${hora}</div>
+            </div>
+            <span class="badge ${e.tipo === 'salida' ? 'badge-warning' : 'badge-success'}">${e.tipo || 'entrada'}</span>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Render lista lateral alumnos ───────────────────────────────
+    function renderListaAlumnos(lista) {
+      $('alumnosItems').innerHTML = lista.map(a => `
+        <div class="alumno-item">
+          <div class="alumno-avatar">${iniciales(a.nombre)}</div>
+          <div class="alumno-info">
+            <div class="alumno-nombre">${a.nombre || 'Sin nombre'}</div>
+            <div class="alumno-carrera">${a.matricula || '—'} · ${a.carrera || '—'}</div>
+          </div>
+          <span class="badge badge-info">${a.semestre ? a.semestre + '°' : '—'}</span>
+        </div>`).join('');
+    }
+
+    // ── Render tabla completa ──────────────────────────────────────
+    function renderTabla() {
+      const tbody = $('tablaBody');
+      tbody.innerHTML = '';
+
+      if (entradasFiltradas.length === 0) {
+        $('tablaWrap').style.display  = 'none';
+        $('emptyTabla').style.display = 'block';
+        return;
+      }
+
+      $('tablaWrap').style.display  = 'block';
+      $('emptyTabla').style.display = 'none';
+
+      entradasFiltradas.forEach((e, idx) => {
+        const fecha = e.fecha ? e.fecha.toDate() : new Date();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:var(--text-muted); font-size:.85rem;">${entradasFiltradas.length - idx}</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:.6rem;">
+              <div style="width:30px;height:30px;border-radius:50%;background:#EEF2FF;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--primary);flex-shrink:0;">${iniciales(e.alumnoNombre)}</div>
+              <span style="font-weight:500;">${e.alumnoNombre || 'Alumno'}</span>
+            </div>
+          </td>
+          <td style="font-family:monospace; font-size:.85rem;">${e.matricula || '—'}</td>
+          <td>${fecha.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}</td>
+          <td>${fecha.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}</td>
+          <td><span class="badge ${e.tipo === 'salida' ? 'badge-warning' : 'badge-success'}">${e.tipo || 'entrada'}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      $('conteoTabla').textContent = `Mostrando ${entradasFiltradas.length} de ${todasEntradas.length} entradas`;
+    }
+
+    // ── Filtros de la tabla ────────────────────────────────────────
+    function aplicarFiltros() {
+      const texto = $('buscarAlumno').value.trim().toLowerCase();
+      const fecha = $('filtroFecha').value;
+      const tipo  = $('filtroTipo').value;
+
+      entradasFiltradas = todasEntradas.filter(e => {
+        const nombre    = (e.alumnoNombre || '').toLowerCase();
+        const matricula = (e.matricula    || '').toLowerCase();
+
+        if (texto && !nombre.includes(texto) && !matricula.includes(texto)) return false;
+
+        if (fecha && e.fecha) {
+          const dLocal = e.fecha.toDate().toLocaleDateString('en-CA');
+          if (dLocal !== fecha) return false;
+        }
+
+        if (tipo && e.tipo !== tipo) return false;
+
+        return true;
+      });
+
+      renderTabla();
+    }
+
+    $('buscarAlumno').addEventListener('input',  aplicarFiltros);
+    $('filtroFecha').addEventListener('change',  aplicarFiltros);
+    $('filtroTipo').addEventListener('change',   aplicarFiltros);
+
+    $('btnLimpiar').addEventListener('click', () => {
+      $('buscarAlumno').value = '';
+      $('filtroFecha').value  = '';
+      $('filtroTipo').value   = '';
+      aplicarFiltros();
+    });
+
+    // ── Cerrar sesión ──────────────────────────────────────────────
+    $('btnCerrarSesion').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = '../index.html';
+    });
+  </script>
+</body>
+</html>

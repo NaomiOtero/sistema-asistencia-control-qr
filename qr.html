@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi QR — Control de Asistencia QR</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body { background: #0f172a; min-height: 100vh; display: flex; flex-direction: column; }
+
+    .navbar-qr {
+      background: rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      padding: .875rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .navbar-qr .brand {
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+    }
+    .navbar-qr .nav-actions {
+      display: flex;
+      gap: .75rem;
+      align-items: center;
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15);
+      color: #fff;
+      border-radius: 8px;
+      padding: .45rem 1rem;
+      font-size: .875rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      transition: background .15s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.18); }
+
+    /* Área principal */
+    .qr-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+      gap: 1.75rem;
+    }
+
+    /* Tarjeta QR */
+    .qr-card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 24px 60px rgba(0,0,0,.5);
+      position: relative;
+    }
+    .qr-card::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 25px;
+      background: linear-gradient(135deg, rgba(99,102,241,.5), rgba(16,185,129,.3));
+      z-index: -1;
+    }
+
+    /* Cabecera de la tarjeta */
+    .qr-card-header {
+      text-align: center;
+    }
+    .qr-card-header .school {
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: .3rem;
+    }
+    .qr-card-header .alumno-nombre {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: .2rem;
+    }
+    .qr-card-header .alumno-meta {
+      font-size: .8rem;
+      color: #6b7280;
+    }
+
+    /* QR canvas */
+    #qrBox canvas, #qrBox img {
+      border-radius: 8px;
+      display: block;
+    }
+
+    /* Footer de la tarjeta */
+    .qr-card-footer {
+      text-align: center;
+      border-top: 1px solid #f3f4f6;
+      padding-top: 1rem;
+      width: 100%;
+    }
+    .matricula-label {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #9ca3af;
+      margin-bottom: .25rem;
+    }
+    .matricula-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      color: #111827;
+      font-family: monospace;
+    }
+
+    /* Info debajo de la tarjeta */
+    .qr-info {
+      text-align: center;
+      color: rgba(255,255,255,.55);
+      font-size: .875rem;
+      max-width: 320px;
+      line-height: 1.6;
+    }
+    .qr-info strong {
+      color: rgba(255,255,255,.85);
+      font-weight: 500;
+    }
+
+    /* Acciones */
+    .qr-actions {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* Pulso animado cuando está listo */
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(99,102,241,.5); }
+      70%  { box-shadow: 0 0 0 18px rgba(99,102,241,0); }
+      100% { box-shadow: 0 0 0 0   rgba(99,102,241,0); }
+    }
+    .qr-card.ready { animation: pulse-ring 2s ease-out 1; }
+
+    /* Carga */
+    #loadingQR {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      color: rgba(255,255,255,.6);
+      font-size: .9rem;
+    }
+    .ring {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(255,255,255,.15);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Modo pantalla completa sin barra */
+    .fullscreen-hint {
+      font-size: .75rem;
+      color: rgba(255,255,255,.3);
+      text-align: center;
+      padding-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar oscura -->
+  <nav class="navbar-qr">
+    <a href="perfil.html" class="brand">← QR Asistencia</a>
+    <div class="nav-actions">
+      <a href="entradas.html" class="btn-ghost">Mis entradas</a>
+      <button class="btn-ghost" id="btnDescargar" type="button">Descargar</button>
+      <button class="btn-ghost" id="btnCerrarSesion" type="button">Salir</button>
+    </div>
+  </nav>
+
+  <!-- Área QR -->
+  <div class="qr-stage">
+
+    <!-- Cargando -->
+    <div id="loadingQR">
+      <div class="ring"></div>
+      Generando tu código QR...
+    </div>
+
+    <!-- Tarjeta QR (oculta hasta cargar) -->
+    <div class="qr-card" id="qrCard" style="display:none;">
+      <div class="qr-card-header">
+        <p class="school">Control de Asistencia</p>
+        <p class="alumno-nombre" id="cardNombre"></p>
+        <p class="alumno-meta" id="cardMeta"></p>
+      </div>
+
+      <div id="qrBox"></div>
+
+      <div class="qr-card-footer">
+        <p class="matricula-label">Matrícula</p>
+        <p class="matricula-value" id="cardMatricula"></p>
+      </div>
+    </div>
+
+    <!-- Info y acciones (ocultos hasta cargar) -->
+    <div id="qrReady" style="display:none; width:100%; display:none;">
+      <p class="qr-info">
+        Muestra este código al <strong>administrador</strong> para registrar tu asistencia.
+        El código es único e intransferible.
+      </p>
+    </div>
+
+    <div class="qr-actions" id="qrActions" style="display:none;">
+      <button class="btn-ghost" id="btnPantallaCompleta" type="button">Pantalla completa</button>
+      <a href="perfil.html" class="btn-ghost">Ver perfil</a>
+    </div>
+
+    <p class="fullscreen-hint" id="fullscreenHint" style="display:none;">
+      Toca el botón para agrandar el QR al máximo
+    </p>
+
+  </div>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const $ = id => document.getElementById(id);
+    let alumnoData = {};
+
+    // ── Auth guard ─────────────────────────────────────────────────
+    onAuthStateChanged(auth, async user => {
+      if (!user) { window.location.href = 'index.html'; return; }
+      await cargarDatos(user);
+    });
+
+    // ── Cargar datos del alumno ────────────────────────────────────
+    async function cargarDatos(user) {
+      try {
+        const [snapU, snapA] = await Promise.all([
+          getDoc(doc(db, 'usuarios', user.uid)),
+          getDoc(doc(db, 'alumnos',  user.uid))
+        ]);
+
+        if (!snapA.exists()) { window.location.href = 'index.html'; return; }
+
+        alumnoData = snapA.data();
+        const userData = snapU.exists() ? snapU.data() : {};
+
+        generarQR(user.uid, alumnoData, userData);
+
+      } catch (err) {
+        console.error('Error cargando QR:', err);
+        $('loadingQR').innerHTML = '<p style="color:rgba(255,255,255,.5)">Error al cargar. Recarga la página.</p>';
+      }
+    }
+
+    // ── Generar QR ─────────────────────────────────────────────────
+    function generarQR(uid, alumno, usuario) {
+      // Tamaño responsivo: más grande en pantallas grandes
+      const size = Math.min(window.innerWidth - 120, 260);
+
+      $('cardNombre').textContent   = usuario.nombre || alumno.nombre || 'Alumno';
+      $('cardMeta').textContent     = `${alumno.carrera || ''}  ·  ${alumno.semestre ? alumno.semestre + '° semestre' : ''}`;
+      $('cardMatricula').textContent = alumno.matricula || '—';
+
+      $('qrBox').innerHTML = '';
+      new QRCode($('qrBox'), {
+        text:         alumno.qrData || uid,
+        width:        size,
+        height:       size,
+        colorDark:    '#111827',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+      // Mostrar tarjeta
+      $('loadingQR').style.display  = 'none';
+      $('qrCard').style.display     = 'flex';
+      $('qrReady').style.display    = 'block';
+      $('qrActions').style.display  = 'flex';
+      $('fullscreenHint').style.display = 'block';
+
+      // Animación de entrada
+      setTimeout(() => $('qrCard').classList.add('ready'), 100);
+    }
+
+    // ── Descargar QR ───────────────────────────────────────────────
+    $('btnDescargar').addEventListener('click', () => {
+      setTimeout(() => {
+        const canvas = document.querySelector('#qrBox canvas');
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = `QR_${alumnoData.matricula || 'alumno'}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }, 150);
+    });
+
+    // ── Pantalla completa ──────────────────────────────────────────
+    $('btnPantallaCompleta').addEventListener('click', () => {
+      const el = document.documentElement;
+      if (!document.fullscreenElement) {
+        el.requestFullscreen?.() || el.webkitRequestFullscreen?.();
+        $('btnPantallaCompleta').textContent = 'Salir de pantalla completa';
+      } else {
+        document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+        $('btnPantallaCompleta').textContent = 'Pantalla completa';
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        $('btnPantallaCompleta').textContent = 'Pantalla completa';
+      }
+    });
+
+    // ── Cerrar sesión ──────────────────────────────────────────────
+    $('btnCerrarSesion').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

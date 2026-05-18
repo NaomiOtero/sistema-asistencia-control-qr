@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Perfil — Control de Asistencia QR</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="perfil.html" class="navbar-brand">QR Asistencia</a>
+    <div class="navbar-menu">
+      <a href="perfil.html"   class="nav-link active">Mi perfil</a>
+      <a href="entradas.html" class="nav-link">Mis entradas</a>
+      <a href="qr.html"       class="nav-link">Mi QR</a>
+      <button class="btn btn-outline btn-sm" id="btnCerrarSesion" type="button">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="container" style="padding-top:2rem; padding-bottom:3rem;">
+
+    <!-- Estado de carga -->
+    <div id="loadingState" class="text-center" style="padding:3rem 0;">
+      <div style="display:inline-block; width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;"></div>
+      <p class="text-muted mt-2">Cargando perfil...</p>
+    </div>
+
+    <!-- Contenido principal (oculto hasta cargar) -->
+    <div id="mainContent" style="display:none;">
+
+      <!-- Tarjeta de perfil -->
+      <div class="card mb-2">
+        <div style="display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;">
+          <div class="avatar" id="avatarInitials"></div>
+          <div style="flex:1; min-width:0;">
+            <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:.25rem;" id="perfilNombre"></h2>
+            <p class="text-muted" style="font-size:.875rem;" id="perfilEmail"></p>
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
+              <span class="badge badge-success" id="perfilRol"></span>
+              <span class="badge badge-info" id="perfilActivo"></span>
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" id="btnEditar" type="button">Editar perfil</button>
+        </div>
+      </div>
+
+      <!-- Datos académicos -->
+      <div class="card mb-2">
+        <h3 style="font-size:1rem; font-weight:600; margin-bottom:1.25rem; color:var(--text);">Datos académicos</h3>
+
+        <!-- Vista lectura -->
+        <div id="vistaLectura">
+          <div class="grid-2">
+            <div class="dato-item">
+              <p class="dato-label">Matrícula</p>
+              <p class="dato-valor" id="verMatricula"></p>
+            </div>
+            <div class="dato-item">
+              <p class="dato-label">Carrera</p>
+              <p class="dato-valor" id="verCarrera"></p>
+            </div>
+            <div class="dato-item">
+              <p class="dato-label">Semestre</p>
+              <p class="dato-valor" id="verSemestre"></p>
+            </div>
+          </div>
+          <div class="dato-item mt-2">
+            <p class="dato-label">Miembro desde</p>
+            <p class="dato-valor" id="verFecha"></p>
+          </div>
+        </div>
+
+        <!-- Vista edición -->
+        <div id="vistaEdicion" style="display:none;">
+          <div class="alert alert-error"   id="editAlertError"></div>
+          <div class="alert alert-success" id="editAlertOk"></div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label" for="editNombre">Nombre(s)</label>
+              <input class="form-control" type="text" id="editNombre">
+              <div class="form-error" id="errorEditNombre">Solo letras y espacios</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="editApellidos">Apellidos</label>
+              <input class="form-control" type="text" id="editApellidos">
+              <div class="form-error" id="errorEditApellidos">Solo letras y espacios</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label" for="editCarrera">Carrera</label>
+              <select class="form-control" id="editCarrera">
+                <option value="">Selecciona...</option>
+                <option>Ingeniería en Sistemas</option>
+                <option>Ingeniería Industrial</option>
+                <option>Administración</option>
+                <option>Contabilidad</option>
+                <option>Derecho</option>
+                <option>Medicina</option>
+                <option>Otra</option>
+              </select>
+              <div class="form-error" id="errorEditCarrera">Selecciona una carrera</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="editSemestre">Semestre</label>
+              <select class="form-control" id="editSemestre">
+                <option value="">Selecciona...</option>
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option><option>10</option>
+              </select>
+              <div class="form-error" id="errorEditSemestre">Selecciona un semestre</div>
+            </div>
+          </div>
+
+
+          <div style="display:flex; gap:.75rem;">
+            <button class="btn btn-primary" id="btnGuardar" type="button" style="flex:1;">
+              <span class="spinner" id="spinnerGuardar"></span>
+              Guardar cambios
+            </button>
+            <button class="btn btn-outline" id="btnCancelarEdit" type="button" style="flex:1;">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini QR + accesos rápidos -->
+      <div class="card">
+        <h3 style="font-size:1rem; font-weight:600; margin-bottom:1.25rem;">Mi código QR</h3>
+        <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+          <div id="miniQR" style="flex-shrink:0;"></div>
+          <div style="flex:1; min-width:180px;">
+            <p class="text-muted" style="font-size:.875rem; margin-bottom:1rem;">
+              Presenta este código cuando el administrador registre tu asistencia.
+            </p>
+            <div style="display:flex; flex-direction:column; gap:.5rem;">
+              <a href="qr.html" class="btn btn-primary btn-sm" style="width:100%;">Ver QR a pantalla completa</a>
+              <a href="entradas.html" class="btn btn-outline btn-sm" style="width:100%;">Ver mis entradas</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /mainContent -->
+
+  </div>
+
+  <style>
+    .dato-item { margin-bottom:.75rem; }
+    .dato-label { font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin-bottom:.2rem; }
+    .dato-valor { font-size:.95rem; font-weight:500; color:var(--text); }
+  </style>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const $ = id => document.getElementById(id);
+    let alumnoData = {};
+    let usuarioData = {};
+
+    // ── Auth guard ────────────────────────────────────────────────
+    onAuthStateChanged(auth, async user => {
+      if (!user) { window.location.href = 'index.html'; return; }
+      await cargarPerfil(user);
+    });
+
+    // ── Cargar datos ──────────────────────────────────────────────
+    async function cargarPerfil(user) {
+      try {
+        const [snapU, snapA] = await Promise.all([
+          getDoc(doc(db, 'usuarios', user.uid)),
+          getDoc(doc(db, 'alumnos',  user.uid))
+        ]);
+
+        if (!snapU.exists() || !snapA.exists()) {
+          window.location.href = 'index.html';
+          return;
+        }
+
+        usuarioData = snapU.data();
+        alumnoData  = snapA.data();
+
+        renderPerfil(user);
+        $('loadingState').style.display = 'none';
+        $('mainContent').style.display  = 'block';
+
+      } catch (err) {
+        console.error('Error cargando perfil:', err);
+        $('loadingState').innerHTML = '<p class="text-muted">Error al cargar el perfil. Recarga la página.</p>';
+      }
+    }
+
+    // ── Renderizar ────────────────────────────────────────────────
+    function renderPerfil(user) {
+      const nombre = usuarioData.nombre || 'Sin nombre';
+      const partes = nombre.trim().split(' ');
+
+      // Avatar con iniciales
+      const iniciales = partes.length >= 2
+        ? `${partes[0][0]}${partes[partes.length-1][0]}`.toUpperCase()
+        : nombre.substring(0, 2).toUpperCase();
+      $('avatarInitials').textContent = iniciales;
+
+      // Datos básicos
+      $('perfilNombre').textContent = nombre;
+      $('perfilEmail').textContent  = user.email;
+      $('perfilRol').textContent    = usuarioData.rol === 'admin' ? 'Administrador' : 'Alumno';
+      $('perfilActivo').textContent = usuarioData.activo ? 'Activo' : 'Inactivo';
+
+      // Datos académicos
+      $('verMatricula').textContent = alumnoData.matricula || '—';
+      $('verCarrera').textContent   = alumnoData.carrera   || '—';
+      $('verSemestre').textContent  = alumnoData.semestre  ? `${alumnoData.semestre}°` : '—';
+
+      // Fecha de registro
+      if (usuarioData.createdAt) {
+        const fecha = usuarioData.createdAt.toDate();
+        $('verFecha').textContent = fecha.toLocaleDateString('es-MX', {
+          year: 'numeric', month: 'long', day: 'numeric'
+        });
+      } else {
+        $('verFecha').textContent = '—';
+      }
+
+      // Mini QR
+      $('miniQR').innerHTML = '';
+      new QRCode($('miniQR'), {
+        text:         alumnoData.qrData || user.uid,
+        width:        110,
+        height:       110,
+        colorDark:    '#111827',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+
+    // ── Editar perfil ─────────────────────────────────────────────
+    $('btnEditar').addEventListener('click', () => {
+      // Pre-llenar formulario con datos actuales
+      const partes = (usuarioData.nombre || '').split(' ');
+      const apellidosIdx = partes.length > 1 ? Math.ceil(partes.length / 2) : 1;
+      $('editNombre').value    = partes.slice(0, apellidosIdx).join(' ');
+      $('editApellidos').value = partes.slice(apellidosIdx).join(' ');
+      $('editCarrera').value   = alumnoData.carrera  || '';
+      $('editSemestre').value  = alumnoData.semestre?.toString() || '';
+
+      $('vistaLectura').style.display  = 'none';
+      $('vistaEdicion').style.display  = 'block';
+      $('btnEditar').style.display     = 'none';
+    });
+
+    $('btnCancelarEdit').addEventListener('click', () => {
+      $('vistaLectura').style.display = 'block';
+      $('vistaEdicion').style.display = 'none';
+      $('btnEditar').style.display    = 'inline-flex';
+      limpiarErroresEdit();
+    });
+
+    // Bloquear solo letras en nombre/apellidos del formulario de edición
+    ['editNombre', 'editApellidos'].forEach(id => {
+      $(id).addEventListener('input', function() {
+        this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/g, '');
+      });
+    });
+
+    // ── Validación edición ────────────────────────────────────────
+    function limpiarErroresEdit() {
+      ['editNombre','editApellidos','editCarrera','editSemestre'].forEach(id => {
+        $(id).classList.remove('error');
+      });
+      document.querySelectorAll('[id^="errorEdit"]').forEach(el => el.classList.remove('visible'));
+      $('editAlertError').classList.remove('visible');
+      $('editAlertOk').classList.remove('visible');
+    }
+
+    function validarEdicion() {
+      let ok = true;
+
+      const nombre = $('editNombre').value.trim();
+      if (!nombre || nombre.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(nombre)) {
+        $('editNombre').classList.add('error');
+        $('errorEditNombre').textContent = 'Solo letras y espacios, mínimo 2 caracteres';
+        $('errorEditNombre').classList.add('visible');
+        ok = false;
+      }
+      const apellidos = $('editApellidos').value.trim();
+      if (!apellidos || apellidos.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/.test(apellidos)) {
+        $('editApellidos').classList.add('error');
+        $('errorEditApellidos').textContent = 'Solo letras y espacios, mínimo 2 caracteres';
+        $('errorEditApellidos').classList.add('visible');
+        ok = false;
+      }
+      if (!$('editCarrera').value) {
+        $('editCarrera').classList.add('error');
+        $('errorEditCarrera').classList.add('visible');
+        ok = false;
+      }
+      if (!$('editSemestre').value) {
+        $('editSemestre').classList.add('error');
+        $('errorEditSemestre').classList.add('visible');
+        ok = false;
+      }
+      return ok;
+    }
+
+    // ── Guardar cambios (UPDATE en Firestore) ─────────────────────
+    $('btnGuardar').addEventListener('click', async () => {
+      limpiarErroresEdit();
+      if (!validarEdicion()) return;
+
+      $('spinnerGuardar').classList.add('visible');
+      $('btnGuardar').disabled = true;
+
+      try {
+        const user    = auth.currentUser;
+        const nombre  = $('editNombre').value.trim();
+        const apells  = $('editApellidos').value.trim();
+        const nombreCompleto = `${nombre} ${apells}`;
+
+        // Actualizar colección 'usuarios'
+        await updateDoc(doc(db, 'usuarios', user.uid), {
+          nombre: nombreCompleto
+        });
+
+        // Actualizar colección 'alumnos'
+        await updateDoc(doc(db, 'alumnos', user.uid), {
+          nombre:   nombreCompleto,
+          carrera:  $('editCarrera').value,
+          semestre: parseInt($('editSemestre').value)
+        });
+
+        usuarioData.nombre  = nombreCompleto;
+        alumnoData.carrera  = $('editCarrera').value;
+        alumnoData.semestre = parseInt($('editSemestre').value);
+
+        renderPerfil(user);
+
+        $('vistaLectura').style.display = 'block';
+        $('vistaEdicion').style.display = 'none';
+        $('btnEditar').style.display    = 'inline-flex';
+
+        // Mostrar éxito brevemente
+        const ok = $('editAlertOk');
+        ok.textContent = '¡Perfil actualizado correctamente!';
+        ok.classList.add('visible');
+        ok.style.display = 'block';
+        setTimeout(() => ok.classList.remove('visible'), 3000);
+
+      } catch (err) {
+        console.error('Error actualizando:', err);
+        const errEl = $('editAlertError');
+        errEl.textContent = 'Error al guardar. Intenta de nuevo.';
+        errEl.classList.add('visible');
+      } finally {
+        $('spinnerGuardar').classList.remove('visible');
+        $('btnGuardar').disabled = false;
+      }
+    });
+
+    // ── Cerrar sesión ─────────────────────────────────────────────
+    $('btnCerrarSesion').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

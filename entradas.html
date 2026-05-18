@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis Entradas — Control de Asistencia QR</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="perfil.html" class="navbar-brand">QR Asistencia</a>
+    <div class="navbar-menu">
+      <a href="perfil.html"   class="nav-link">Mi perfil</a>
+      <a href="entradas.html" class="nav-link active">Mis entradas</a>
+      <a href="qr.html"       class="nav-link">Mi QR</a>
+      <button class="btn btn-outline btn-sm" id="btnCerrarSesion" type="button">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="container-wide" style="padding-top:2rem; padding-bottom:3rem;">
+
+    <!-- Encabezado -->
+    <div class="flex-between mb-2" style="flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:.2rem;">Mis entradas</h2>
+        <p class="text-muted" id="subtitulo">Cargando...</p>
+      </div>
+      <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+        <!-- Filtro por mes -->
+        <select class="form-control" id="filtroMes" style="width:auto; padding:.5rem .875rem;">
+          <option value="">Todos los meses</option>
+        </select>
+        <!-- Búsqueda por fecha -->
+        <input class="form-control" type="date" id="filtroFecha" style="width:auto; padding:.5rem .875rem;">
+        <button class="btn btn-outline btn-sm" id="btnLimpiarFiltros" type="button">Limpiar</button>
+      </div>
+    </div>
+
+    <!-- Tarjetas de resumen -->
+    <div class="grid-2 mb-2" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--primary); line-height:1;" id="totalEntradas">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Total de entradas</p>
+      </div>
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--success); line-height:1;" id="entradasMes">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Este mes</p>
+      </div>
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--warning); line-height:1;" id="ultimaEntrada">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Última entrada</p>
+      </div>
+      <div class="card text-center" style="padding:1.25rem;">
+        <p style="font-size:2rem; font-weight:800; color:var(--text); line-height:1;" id="diasAsistidos">—</p>
+        <p class="text-muted" style="font-size:.8rem; margin-top:.35rem;">Días distintos</p>
+      </div>
+    </div>
+
+    <!-- Estado de carga -->
+    <div id="loadingState" class="text-center" style="padding:3rem 0;">
+      <div style="display:inline-block; width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;"></div>
+      <p class="text-muted mt-2">Cargando entradas...</p>
+    </div>
+
+    <!-- Estado vacío -->
+    <div id="emptyState" style="display:none;" class="card text-center" style="padding:3rem;">
+      <div style="font-size:3rem; margin-bottom:.75rem;">📋</div>
+      <h3 style="font-weight:600; margin-bottom:.5rem;">Sin entradas registradas</h3>
+      <p class="text-muted">Aún no tienes asistencias registradas.<br>Presenta tu QR al administrador para registrar una entrada.</p>
+      <a href="qr.html" class="btn btn-primary mt-2" style="width:auto; display:inline-flex;">Ver mi QR</a>
+    </div>
+
+    <!-- Estado sin resultados (filtro) -->
+    <div id="noResultsState" style="display:none;" class="card text-center" style="padding:2rem;">
+      <p style="font-size:1.5rem; margin-bottom:.5rem;">🔍</p>
+      <p class="text-muted">No hay entradas para el filtro seleccionado.</p>
+    </div>
+
+    <!-- Tabla de entradas -->
+    <div id="tablaWrap" style="display:none;">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Día</th>
+              <th>Tipo</th>
+              <th>Registrado por</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+      </div>
+      <p class="text-muted mt-1" style="font-size:.8rem; text-align:right;" id="conteoResultados"></p>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { auth, db } from './js/firebase-config.js';
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const $ = id => document.getElementById(id);
+
+    let todasLasEntradas = [];   // datos crudos de Firestore
+    let entradasFiltradas = [];  // después de aplicar filtros
+
+    // ── Auth guard ─────────────────────────────────────────────────
+    onAuthStateChanged(auth, async user => {
+      if (!user) { window.location.href = 'index.html'; return; }
+      await cargarEntradas(user);
+    });
+
+    // ── Cargar entradas desde Firestore ────────────────────────────
+    async function cargarEntradas(user) {
+      try {
+        const q = query(
+          collection(db, 'asistencia'),
+          where('alumnoUid', '==', user.uid),
+          orderBy('fecha', 'desc')
+        );
+        const snap = await getDocs(q);
+
+        todasLasEntradas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        poblarFiltroMes();
+        calcularResumen();
+        aplicarFiltros();
+
+        $('loadingState').style.display = 'none';
+
+      } catch (err) {
+        console.error('Error cargando entradas:', err);
+        $('loadingState').innerHTML = '<p class="text-muted">Error al cargar. Recarga la página.</p>';
+      }
+    }
+
+    // ── Poblar select de meses ─────────────────────────────────────
+    function poblarFiltroMes() {
+      const mesesVistos = new Set();
+      todasLasEntradas.forEach(e => {
+        if (e.fecha) {
+          const d = e.fecha.toDate();
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          mesesVistos.add(key);
+        }
+      });
+
+      const select = $('filtroMes');
+      [...mesesVistos].sort().reverse().forEach(key => {
+        const [anio, mes] = key.split('-');
+        const label = new Date(anio, mes-1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+        select.appendChild(opt);
+      });
+    }
+
+    // ── Calcular resumen ───────────────────────────────────────────
+    function calcularResumen() {
+      const ahora = new Date();
+      const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,'0')}`;
+
+      let enMes = 0;
+      const diasUnicos = new Set();
+
+      todasLasEntradas.forEach(e => {
+        if (e.fecha) {
+          const d = e.fecha.toDate();
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          if (key === mesActual) enMes++;
+          diasUnicos.add(d.toLocaleDateString('es-MX'));
+        }
+      });
+
+      $('totalEntradas').textContent = todasLasEntradas.length;
+      $('entradasMes').textContent   = enMes;
+      $('diasAsistidos').textContent = diasUnicos.size;
+
+      if (todasLasEntradas.length > 0 && todasLasEntradas[0].fecha) {
+        const ultima = todasLasEntradas[0].fecha.toDate();
+        $('ultimaEntrada').textContent = ultima.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+      } else {
+        $('ultimaEntrada').textContent = '—';
+      }
+
+      // Subtítulo
+      $('subtitulo').textContent = todasLasEntradas.length === 0
+        ? 'Sin entradas registradas'
+        : `${todasLasEntradas.length} entrada${todasLasEntradas.length !== 1 ? 's' : ''} registrada${todasLasEntradas.length !== 1 ? 's' : ''}`;
+    }
+
+    // ── Aplicar filtros ────────────────────────────────────────────
+    function aplicarFiltros() {
+      const mes   = $('filtroMes').value;
+      const fecha = $('filtroFecha').value;  // YYYY-MM-DD
+
+      entradasFiltradas = todasLasEntradas.filter(e => {
+        if (!e.fecha) return false;
+        const d = e.fecha.toDate();
+
+        if (mes) {
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          if (key !== mes) return false;
+        }
+        if (fecha) {
+          const dLocal = d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+          if (dLocal !== fecha) return false;
+        }
+        return true;
+      });
+
+      renderTabla();
+    }
+
+    // ── Renderizar tabla ───────────────────────────────────────────
+    const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const TIPO_BADGE = {
+      entrada: '<span class="badge badge-success">Entrada</span>',
+      salida:  '<span class="badge badge-warning">Salida</span>',
+    };
+
+    function renderTabla() {
+      const tbody = $('tablaBody');
+      tbody.innerHTML = '';
+
+      if (todasLasEntradas.length === 0) {
+        $('emptyState').style.display    = 'block';
+        $('noResultsState').style.display = 'none';
+        $('tablaWrap').style.display      = 'none';
+        return;
+      }
+
+      if (entradasFiltradas.length === 0) {
+        $('emptyState').style.display    = 'none';
+        $('noResultsState').style.display = 'block';
+        $('tablaWrap').style.display      = 'none';
+        return;
+      }
+
+      $('emptyState').style.display    = 'none';
+      $('noResultsState').style.display = 'none';
+      $('tablaWrap').style.display      = 'block';
+
+      entradasFiltradas.forEach((e, idx) => {
+        const fecha = e.fecha.toDate();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:var(--text-muted); font-size:.85rem;">${entradasFiltradas.length - idx}</td>
+          <td style="font-weight:500;">${fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+          <td>${fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td><span class="badge badge-info">${DIAS[fecha.getDay()]}</span></td>
+          <td>${TIPO_BADGE[e.tipo] || `<span class="badge badge-info">${e.tipo || 'Entrada'}</span>`}</td>
+          <td style="color:var(--text-muted); font-size:.85rem;">${e.registradoPorNombre || 'Administrador'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      $('conteoResultados').textContent =
+        `Mostrando ${entradasFiltradas.length} de ${todasLasEntradas.length} entradas`;
+    }
+
+    // ── Eventos de filtros ─────────────────────────────────────────
+    $('filtroMes').addEventListener('change', aplicarFiltros);
+    $('filtroFecha').addEventListener('change', aplicarFiltros);
+
+    $('btnLimpiarFiltros').addEventListener('click', () => {
+      $('filtroMes').value   = '';
+      $('filtroFecha').value = '';
+      aplicarFiltros();
+    });
+
+    // ── Cerrar sesión ──────────────────────────────────────────────
+    $('btnCerrarSesion').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>
